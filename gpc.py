@@ -2,12 +2,10 @@
 import itertools
 import matplotlib.pyplot as plt
 import numpy as np
-import pymc3
 
 from scipy.optimize import minimize
 from typing import Callable, Sequence
 #%%
-
 class GPC():
     
     def __init__(self, optimizer:str = "Nelder-Mead"):
@@ -24,6 +22,8 @@ class GPC():
         self.kernel_parameters = hyperparameters
     
     def set_kernel_function(self, kernel:Callable, hyperparameters:Sequence) -> None:
+        '''Sets a kernel function that takes as arguments, X, Y, hyperparameters (as a list) and returns a real number.'''
+
         self.kernel_function = kernel
         self.kernel_parameters = hyperparameters
 
@@ -31,18 +31,24 @@ class GPC():
         assert self.X is not None, "There is no data loaded, please fit the model by calling the fit method."
         return np.zeros(len(self.X))
 
-    def get_sigma(self, hyperparameters):
+    def get_sigma(self, X:np.ndarray, hyperparameters:Sequence = []):
+        '''Returns a variance covariance matrix using the specified kernel and hyperparameters. if no hyperparameters are
+        specified then uses the class hyperparameters.'''
+        
         assert self.kernel is not None, "No kernel is set"
-        assert self.X is not None, "There is no data loaded. Please fit the model by calling fit method"
-        n = len(self.X)
+        if hyperparameters == []:
+            hyperparameters = self.kernel_parameters
+
+        n = len(X)
         gram_matrix = np.array([np.zeros(n) for _ in range(n)])
         for i, j in itertools.product(range(n), range(n)):
-            gram_matrix[i][j] = self.kernel(self.X[i], self.X[j], hyperparameters)
+            gram_matrix[i][j] = self.kernel(X[i], X[j], hyperparameters)
         return gram_matrix
     
-    def set_nll(self, **kwargs) -> float:
-        '''input: X_train, Y_train, self.kernel, self.kernel_parameters -> likelihood'''
+    def set_nll(self, X, Y, **kwargs) -> float:
+        '''Builds the nll function so that nll function only takes hyperparameters as argument'''
         def nll(hyperparameters):
+            '''Negative log likelihood P(f | Y)'''
             f = self.posterior_mean(**kwargs)
             ...
         self.nll = nll
