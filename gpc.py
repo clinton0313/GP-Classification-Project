@@ -2,7 +2,9 @@
 import itertools
 import matplotlib.pyplot as plt
 import numpy as np
+from sklearn.covariance import log_likelihood
 
+from EllipticalSliceSampler import EllipticalSampler
 from scipy.optimize import minimize
 from typing import Callable, Sequence
 #%%
@@ -11,7 +13,6 @@ class GPC():
     def __init__(self, optimizer:str = "Nelder-Mead"):
         self.kernel_parameters = []
         self.kernel_function = None
-        self.nll = None
         self.X = None
         self.Y = None
         self.optimizer = optimizer
@@ -45,29 +46,31 @@ class GPC():
             gram_matrix[i][j] = self.kernel(X[i], X[j], hyperparameters)
         return gram_matrix
     
-    def set_nll(self, X, Y, **kwargs) -> float:
-        '''Builds the nll function so that nll function only takes hyperparameters as argument'''
-        def nll(hyperparameters):
-            '''Negative log likelihood P(f | Y)'''
-            f = self.posterior_mean(**kwargs)
-            ...
-        self.nll = nll
+    def loglikelihood(self, X, Y, f, hyperparameters, **kwargs) -> float:
+        '''return the log likelihood'''
+        
     
-    def sample_posterior(self, burn_in:int = 100, n_samples:int = 100) -> Sequence:
+    def sample_posterior(self, X, num_burnin:int = 100, num_samples:int = 100) -> Sequence:
         '''return n samples after an initial burn in of samples'''
-        ...
+        def ll(f):
+            return self.loglikelihood(hyperparameters=self.kernel_parameters)
+
+        ess = EllipticalSampler(self.get_mu(), self.get_sigma(X), ll)
+        return ess.sample(num_samples, num_burnin)
 
     def posterior_mean(self, **kwargs) -> Sequence:
         '''Returns posterior mean'''
-        samples = np.vstack(self.sample_posterior(**kwargs))
-        return np.mean(samples, axis=0)
+        return np.mean(self.sample_posterior(self.X, **kwargs), axis=0)
 
-    def fit(self, X, y, max_iters:int = 100) -> None:
+    def fit(self, X, y, max_iters:int = 100, **kwargs) -> None:
         '''sets hyperparameters to optimal'''
         self.X = X
         self.Y = y
 
-        res = minimize(self.nll, self.kernel_parameters, method=self.optimizer)
+        def nll(hyperparameters):
+            return self.loglikelihood(self.X, self.Y, f=self.posterior_mean(**kwargs))
+
+        res = minimize(nll, self.kernel_parameters, method=self.optimizer)
         self.set_hyperparams(res.x)
     
     def predict(self, X) -> float:
