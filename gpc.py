@@ -15,7 +15,7 @@ class GPC():
         kernel:Callable, 
         hyperparameters:Sequence, 
         hyperparameter_names: Sequence = [], 
-        optimizer:str = "Nelder-Mead"
+        optimizer:str = "L-BFGS-B"
     ):
         '''
         Args:
@@ -57,7 +57,7 @@ class GPC():
         gram_matrix = np.array([np.zeros(n) for _ in range(n)])
         for i, j in itertools.product(range(n), range(n)):
             gram_matrix[i][j] = self.kernel(X[i], X[j], hyperparameters)
-        return gram_matrix
+        return gram_matrix + 1e-12 * np.identity(n)
     
     def _sigmoid(self, f):
         return 1/(1 + np.exp(-f))
@@ -103,12 +103,13 @@ class GPC():
         '''Returns posterior mean'''
         return np.mean(self.sample_posterior(X, Y, verbose=verbose, **kwargs), axis=0)
 
-    def fit(self, X, y, maxiter:int = 100, tol:float = 0.1, verbose=0, **kwargs) -> None:
+    def fit(self, X, y, maxiter:int = 100, eps:float = 1e-3, tol:float = 1e-7, verbose=0, **kwargs) -> None:
         '''
         Fits the model and finds the optimal hyperparameters
         
         Args:
             maxiter: max iterations for the optimizer
+            eps: step size for the optimizer
             tol: threshold change in the log likelihood for convergence
             verbose: 1 shows the hyperparameters as it updates, 2 also shows progress bar for sampler.
         '''
@@ -131,9 +132,10 @@ class GPC():
             nll, 
             self.hyperparameters, 
             method=self.optimizer, 
-            options={"maxiter":maxiter, "fatol":tol}, 
+            options={"maxiter":maxiter, "ftol": tol, "eps": eps}, 
             callback=callback)
         self._update_hyperparameters(res.x)
+        print(f"Fitted with final hyperparameters: {self.hyperparameters} and neg log likelihood {res.fun}")
     
     def predict(self, X, verbose=0, **kwargs) -> float:
         '''Predict function with kwargs being passed to sample_posterior'''
@@ -141,3 +143,4 @@ class GPC():
         pred_X = np.concatenate((self.X, pred_X))
         samples = self.sample_posterior(pred_X, self.Y, verbose=verbose, **kwargs)[:, self.X.shape[0]:]
         return np.mean(samples, axis=0), np.var(samples, axis=0)
+
