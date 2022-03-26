@@ -1,6 +1,5 @@
 #%%
 import itertools
-import matplotlib.pyplot as plt
 import numpy as np
 
 from EllipticalSliceSampler import EllipticalSampler
@@ -11,7 +10,7 @@ class GPC():
     '''
     A Gaussian Process Classifier class.
     '''
-    def __init__(self, kernel, hyperparameters, optimizer:str = "Nelder-Mead"):
+    def __init__(self, kernel:Callable, hyperparameters:Sequence, optimizer:str = "Nelder-Mead"):
         '''
         Args:
             kernel: A kernel function that takes three arguments: X, Y, hyperparameters. 
@@ -55,11 +54,21 @@ class GPC():
     def _sigmoid(self, f):
         return 1/(1 + np.exp(-f))
 
+    def _list_to_array(self, x:Sequence):
+        if not isinstance(x, np.ndarray):
+            x = np.array(x)
+        return x
+
     def _loglikelihood(self, Y, f) -> float:
-        '''Returns the log likelihood for a binary classification model'''
+        '''
+        Returns the log likelihood for a binary classification model
+        Args:
+            Y: Binary labels
+            f: Logits (draw from gaussian process)
+        '''
         
         f = f.reshape(1, -1)
-        Y = Y.reshape(1, -1)
+        Y = self._list_to_array(Y).reshape(1, -1)
         assert f.shape == Y.shape, f"f and Y are not the same shape got f: {f.shape} and Y: {Y.shape}"
 
         return np.sum([
@@ -100,6 +109,7 @@ class GPC():
 
         def nll(hyperparameters):
             return (- self._loglikelihood(Y=self.Y, f=self.posterior_mean(self.X, self.Y, hyperparameters=hyperparameters, **kwargs)))
+
         res = minimize(
             nll, 
             self.hyperparameters, 
@@ -114,23 +124,4 @@ class GPC():
         prediction = 1/(1 + np.exp(-(X - self.posterior_mean(self.X, self.Y, verbose=verbose, **kwargs))))
         return prediction
 
-
-#%%
-
-def sigmoid(x):
-    return 1 / (1 + np.exp(-x))
-
-def gaussian_kernel(x, y, theta):
-    return theta[0] * np.exp(-(np.dot((x-y), (x-y))/(2*theta[1])))
-
-def linear_kernel(x, y, theta):
-    return theta[0] * np.dot(x, y) + theta[1]
-
-X = np.random.normal(0, 1, 10)
-Y = np.random.randint(0, 2, 10)
-
-gpc = GPC(kernel=gaussian_kernel, hyperparameters=[1,1])
-
-gpc.sample_posterior(X, Y)
-gpc.fit(X, Y, verbose=0)
 # %%
