@@ -77,6 +77,7 @@ class GPC():
         assert num_samples > num_burnin, f"Got {num_samples} but required to burn {num_burnin} samples"
 
         def log_likelihood(f):
+            if len(Y) < len(f): f = f[:len(Y)]
             return self._loglikelihood(Y=Y, f=f)
 
         ess = EllipticalSampler(self._get_mu(X), self._get_sigma(X,**kwargs), log_likelihood)
@@ -108,11 +109,15 @@ class GPC():
             callback=lambda x: print(x) if verbose >=1 else None)
         self._update_hyperparameters(res.x)
     
-    def predict(self, X, verbose=0, **kwargs) -> float:
+    def predict(self, pred_X, verbose=0, **kwargs) -> np.ndarray:
         '''Predict function with kwargs being passed to sample_posterior'''
         self._check_is_fitted()
-        prediction = 1/(1 + np.exp(-(X - self.posterior_mean(self.X, self.Y, verbose=verbose, **kwargs))))
-        return prediction
+        pred_X = np.concatenate((self.X, pred_X))
+        samples = self.sample_posterior(X, Y, verbose=verbose, **kwargs)[:,]
+        return np.mean(samples, axis=0), np.var(samples, axis=0)
+
+        # prediction = 1/(1 + np.exp(-(X - self.posterior_mean(self.X, self.Y, verbose=verbose, **kwargs))))
+        # return prediction
 
 
 #%%
