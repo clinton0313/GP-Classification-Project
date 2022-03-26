@@ -108,9 +108,11 @@ class GPC():
             callback=lambda x: print(x) if verbose >=1 else None)
         self._update_hyperparameters(res.x)
     
-    def predict(self, X) -> float:
+    def predict(self, X, verbose=0, **kwargs) -> float:
+        '''Predict function with kwargs being passed to sample_posterior'''
         self._check_is_fitted()
-        ...
+        prediction = 1/(1 + np.exp(-(X - self.posterior_mean(self.X, self.Y, verbose=verbose, **kwargs))))
+        return prediction
 
 
 #%%
