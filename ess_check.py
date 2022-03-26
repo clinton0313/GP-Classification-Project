@@ -1,10 +1,17 @@
 #%%
 
+from msilib import init_database
 import numpy as np
 import scipy
 
 from scipy.stats import multivariate_normal
 from EllipticalSliceSampler import EllipticalSampler
+from utils import (
+    plot_sampler,
+    plot_multiple
+)
+
+
 
 # %%
 # Prior on latent parameters
@@ -25,6 +32,13 @@ ess = EllipticalSampler(prior_μ=prior_μ, prior_Σ=prior_Σ, ll=loglik)
 draws = ess.sample(num_samples=10000, num_burnin=0)
 
 # %%
+# Draw to check for convergence of the MCMC routine
+plot_sampler(sample=draws, ll=loglik, stepsize=50)
+
+# %%
+# Check multiple initializations converge to same likelihood
+plot_multiple(ess, loglik, 1000, 5)
+# %%
 # Sanity check
 # https://stats.stackexchange.com/questions/28744/multivariate-normal-posterior
 # two gaussians, can compute posterior of multivariate
@@ -34,7 +48,7 @@ post_Σ = prior_Σ @ scipy.linalg.inv(prior_Σ + lik_Σ) @ lik_Σ
 print(post_Σ)
 
 # Posterior Covariance from the Elliptical Slice Sampler 
-np.cov(draws.squeeze().T)
+np.cov(draws.T)
 # %%
-    # accounting for the mean in the sampler
-    # https://www.michaelchughes.com/blog/2012/08/elliptical-slice-sampling-for-priors-with-non-zero-mean/
+# accounting for the mean in the sampler
+# https://www.michaelchughes.com/blog/2012/08/elliptical-slice-sampling-for-priors-with-non-zero-mean/

@@ -54,7 +54,7 @@ class EllipticalSampler:
             f_candidate = self.f_incumbent * np.cos(Θ) + nu * np.sin(Θ)
             if self.ll(f_candidate) > log_y:
                 self.f_incumbent = f_candidate
-                return self.f_incumbent
+                return self.f_incumbent.squeeze()
             elif Θ < 0:
                 Θ_min = Θ
             elif Θ > 0:
