@@ -65,6 +65,9 @@ class GPC():
     def posterior_mean(self, **kwargs) -> Sequence:
         '''Returns posterior mean'''
         return np.mean(self.sample_posterior(self.X, **kwargs), axis=0)
+    
+    def posterior_var(self, **kwargs) -> Sequence:
+        return np.var(self.sample_posterior(self.X, **kwargs), axis= 0)
 
     def fit(self, X, y, max_iters:int = 100, **kwargs) -> None:
         '''sets hyperparameters to optimal'''
@@ -78,7 +81,7 @@ class GPC():
         self.set_hyperparams(res.x)
     
     def predict(self, X) -> float:
-        prediction = 1/(1 + np.exp(-(X - self.posterior_mean)))
+        prediction = 1/(1 + np.exp(-(X - self.posterior_mean)/self.posterior_var))
         return prediction
 
 
