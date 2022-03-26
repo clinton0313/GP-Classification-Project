@@ -1,6 +1,5 @@
 #%%
 
-from msilib import init_database
 import numpy as np
 import scipy
 
@@ -52,3 +51,11 @@ np.cov(draws.T)
 # %%
 # accounting for the mean in the sampler
 # https://www.michaelchughes.com/blog/2012/08/elliptical-slice-sampling-for-priors-with-non-zero-mean/
+basespace = np.linspace(0,2*np.pi, 100)
+points = np.array([np.cos(basespace),np.sin(basespace)])
+# %%
+sd_ellipse = 2 * np.linalg.cholesky(np.cov(draws.T)) @ points
+# %%
+y_pred, var_pred = gpc.predict(np.array([1,3,4,5,76,4,7,78]))
+prob_pred = GPC._sigmoid(y_pred)
+prob_lb, prob_ub = GPC._sigmoid(y_pred-2*np.sqrt(var_pred)), GPC._sigmoid(y_pred+2*np.sqrt(var_pred))

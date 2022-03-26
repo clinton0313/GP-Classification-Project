@@ -52,7 +52,8 @@ class GPC():
             gram_matrix[i][j] = self.kernel(X[i], X[j], hyperparameters)
         return gram_matrix
     
-    def _sigmoid(self, f):
+    @staticmethod
+    def _sigmoid(f):
         return 1/(1 + np.exp(-f))
 
     def _loglikelihood(self, Y, f) -> float:
@@ -60,7 +61,7 @@ class GPC():
         
         f = f.reshape(1, -1)
         Y = Y.reshape(1, -1)
-        assert f.shape == Y.shape, f"f and Y are not the same shape got f: {f.shape} and Y: {Y.shape}"
+        # assert f.shape == Y.shape, f"f and Y are not the same shape got f: {f.shape} and Y: {Y.shape}"
 
         return np.sum([
             np.log(self._sigmoid(f_i)) if y == 1 
@@ -116,9 +117,6 @@ class GPC():
         samples = self.sample_posterior(pred_X, self.Y, verbose=verbose, **kwargs)[:, self.X.shape[0]:]
         return np.mean(samples, axis=0), np.var(samples, axis=0)
 
-        # prediction = 1/(1 + np.exp(-(X - self.posterior_mean(self.X, self.Y, verbose=verbose, **kwargs))))
-        # return prediction
-
 
 #%%
 
@@ -138,4 +136,11 @@ gpc = GPC(kernel=gaussian_kernel, hyperparameters=[1,1])
 
 gpc.sample_posterior(X, Y)
 gpc.fit(X, Y, verbose=0)
+# %%
+y_pred, var_pred = gpc.predict(np.array([1]))
+prob_pred = GPC._sigmoid(y_pred)
+prob_lb, prob_ub = GPC._sigmoid(y_pred-2*np.sqrt(var_pred)), GPC._sigmoid(y_pred+2*np.sqrt(var_pred))
+
+# %%
+
 # %%
