@@ -1,6 +1,5 @@
 #%%
 import itertools
-from django.conf import SettingsReference
 import matplotlib.pyplot as plt
 import numpy as np
 
@@ -73,7 +72,7 @@ class GPC():
         '''Draw num_samples from the prior'''
         return np.random.multivariate_normal(self._get_mu(X), self._get_sigma(X), num_samples)
     
-    def sample_posterior(self, X, Y, num_burnin:int = 100, num_samples:int = 300, **kwargs) -> Sequence:
+    def sample_posterior(self, X, Y, num_burnin:int = 100, num_samples:int = 300, verbose=0, **kwargs) -> Sequence:
         '''Draws num_samples from posterior and discards the first num_burnin samples.'''
         assert num_samples > num_burnin, f"Got {num_samples} but required to burn {num_burnin} samples"
 
@@ -81,21 +80,32 @@ class GPC():
             return self._loglikelihood(Y=Y, f=f)
 
         ess = EllipticalSampler(self._get_mu(X), self._get_sigma(X,**kwargs), log_likelihood)
-        return ess.sample(num_samples, num_burnin)
+        return ess.sample(num_samples, num_burnin, verbose=verbose)
 
-    def posterior_mean(self, X, Y, **kwargs) -> Sequence:
+    def posterior_mean(self, X, Y, verbose=0, **kwargs) -> Sequence:
         '''Returns posterior mean'''
-        return np.mean(self.sample_posterior(X, Y, **kwargs), axis=0)
+        return np.mean(self.sample_posterior(X, Y, verbose=0, **kwargs), axis=0)
 
-    def fit(self, X, y, maxiter:int = 100, **kwargs) -> None:
-        '''Fits the model and finds the optimal hyperparameters'''
+    def fit(self, X, y, maxiter:int = 100, tol:float = 0.1, verbose=0, **kwargs) -> None:
+        '''
+        Fits the model and finds the optimal hyperparameters
+        
+        Args:
+            maxiter: max iterations for the optimizer
+            tol: threshold change in the log likelihood for convergence
+            verbose: 1 shows the hyperparameters as it updates, 2 also shows progress bar for sampler.
+        '''
         self.X = X
         self.Y = y
 
         def nll(hyperparameters):
             return (- self._loglikelihood(Y=self.Y, f=self.posterior_mean(self.X, self.Y, hyperparameters=hyperparameters, **kwargs)))
-
-        res = minimize(nll, self.hyperparameters, method=self.optimizer, options={"maxiter":maxiter})
+        res = minimize(
+            nll, 
+            self.hyperparameters, 
+            method=self.optimizer, 
+            options={"maxiter":maxiter, "fatol":tol}, 
+            callback=lambda x: print(x) if verbose >=1 else None)
         self._update_hyperparameters(res.x)
     
     def predict(self, X) -> float:
@@ -120,4 +130,5 @@ Y = np.random.randint(0, 2, 10)
 gpc = GPC(kernel=gaussian_kernel, hyperparameters=[1,1])
 
 gpc.sample_posterior(X, Y)
+gpc.fit(X, Y, verbose=0)
 # %%

@@ -69,14 +69,16 @@ class EllipticalSampler:
             #     elif permission.lower in ["n", "no"]:
             #         continue
 
-    def sample(self, num_samples: int, num_burnin: int=0):
+    def sample(self, num_samples: int, num_burnin: int=0, verbose:int =0):
         """
         Performs `num_samples` iterative runs of the ESS, with the `f` state updated
         between cycles. 
 
         :return: A stacked array with the posterior samples.  
         """
-        output = [self.iteration() + self.prior_µ for _ in tqdm(range(num_samples))]
+        disable = True if verbose <=1 else False
+
+        output = [self.iteration() + self.prior_µ for _ in tqdm(range(num_samples), disable=disable)]
         if num_burnin>0:
             output = output[num_burnin:]
         return np.stack(output)
