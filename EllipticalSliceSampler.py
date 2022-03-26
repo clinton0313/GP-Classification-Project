@@ -50,24 +50,24 @@ class EllipticalSampler:
         Θ_min, Θ_max = Θ - 2*np.pi, Θ
     
         while True:
-            try:
-                f_candidate = self.f_incumbent * np.cos(Θ) + nu * np.sin(Θ)
-                if self.ll(f_candidate) > log_y:
-                    self.f_incumbent = f_candidate
-                    return self.f_incumbent
-                elif Θ < 0:
-                    Θ_min = Θ
-                elif Θ > 0:
-                    Θ_max = Θ
-                Θ = np.random.uniform(Θ_min, Θ_max)
-            except Exception as e:
-                print(f"Error: {e}")
-                permission = input("Exit Sampler?: [Y/N]")
-                assert permission.lower() in ["y", "n", "yes", "no"], "Invalid response."
-                if permission.lower in ["y", "yes"]:
-                    raise e
-                elif permission.lower in ["n", "no"]:
-                    continue
+            # try:
+            f_candidate = self.f_incumbent * np.cos(Θ) + nu * np.sin(Θ)
+            if self.ll(f_candidate) > log_y:
+                self.f_incumbent = f_candidate
+                return self.f_incumbent
+            elif Θ < 0:
+                Θ_min = Θ
+            elif Θ > 0:
+                Θ_max = Θ
+            Θ = np.random.uniform(Θ_min, Θ_max)
+            # except Exception as e:
+            #     print(f"Error: {e}")
+            #     permission = input("Exit Sampler?: [Y/N]")
+            #     assert permission.lower() in ["y", "n", "yes", "no"], "Invalid response."
+            #     if permission.lower in ["y", "yes"]:
+            #         raise e
+            #     elif permission.lower in ["n", "no"]:
+            #         continue
 
     def sample(self, num_samples: int, num_burnin: int=0):
         """
