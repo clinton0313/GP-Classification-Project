@@ -1,5 +1,6 @@
 #%%
 import itertools
+from django.conf import SettingsReference
 import matplotlib.pyplot as plt
 import numpy as np
 
@@ -8,40 +9,58 @@ from scipy.optimize import minimize
 from typing import Callable, Sequence
 #%%
 class GPC():
-    
-    def __init__(self, optimizer:str = "Nelder-Mead"):
-        self.kernel_parameters = []
+    '''
+    A Gaussian Process Classifier class.
+    '''
+    def __init__(self, kernel, hyperparameters, optimizer:str = "Nelder-Mead"):
+        '''
+        Args:
+            kernel: A kernel function that takes three arguments: X, Y, hyperparameters. 
+                hyperparameters should be a list of kernel parameters.
+            hyperparameters: A sequence of hyperparmaeters that correspond to the kernel argument.
+            optimizer[optional]: optimizer by scipy.optimize.minimize to fit the model. 
+        '''
         self.kernel= None
+        self.hyperparameters = None
+        self._set_kernel(kernel, hyperparameters)
+
         self.X = None
         self.Y = None
         self.optimizer = optimizer
-        self.fig, self.ax = plt.subplots(figsize=(14,14))
 
-    def _is_fitted(self) -> None:
+    @property
+    def hyperparameters(self):
+        return self._hyperparameters
+    
+    @property
+    def kernel(self):
+        return self._kernel
+
+    def _check_is_fitted(self) -> None:
         assert self.X is not None, "There is no data loaded, please fit the model by calling the fit method."
 
-    def _kernel_is_defined(self) -> None:
-        assert self.kernel is not None, "No kernel is defined"
+    def _update_hyperparameters(self, hyperparameters) -> None:
+        '''Updates hyperparameters of kernel or sets it if no kernel is defined'''
+        if self._kernel_is_defined():
+            assert len(hyperparameters) == len(self.hyperparameters), \
+                f"Incorrect number of hyperparameters. Expected {len(self.hyperparameters)} instead got {len(hyperparameters)}"
+        self._hyperparameters = hyperparameters
 
-    def set_hyperparams(self, hyperparameters) -> None:
-        assert len(hyperparameters) == len(self.kernel_parameters), \
-            f"Incorrect number of hyperparameters. Expected {len(self.kernel_parameters)} instead got {len(hyperparameters)}"
-        self.kernel_parameters = hyperparameters
-    
-    def set_kernel(self, kernel:Callable, hyperparameters:Sequence) -> None:
-        '''Sets a kernel function that takes as arguments, X, Y, hyperparameters (as a list) and returns a real number.'''
-        self.kernel = kernel
-        self.kernel_parameters = hyperparameters
+    def _set_kernel(self, kernel:Callable, hyperparameters:Sequence) -> None:
+        '''Sets kernel with a list of hyperparameters'''
+        self._kernel = kernel
+        self._update_hyperparameters(hyperparameters)
 
-    def get_mu(self, X):
+    def _get_mu(self, X):
+        '''Returns a mean vector of zeros'''
         return np.zeros(len(X))
 
-    def get_sigma(self, X:np.ndarray, hyperparameters:Sequence = []):
+    def _get_sigma(self, X:np.ndarray, hyperparameters:Sequence = []):
         '''Returns a variance covariance matrix using the specified kernel and hyperparameters. if no hyperparameters are
         specified then uses the class hyperparameters.'''
-        self._kernel_is_defined()
+
         if hyperparameters == []:
-            hyperparameters = self.kernel_parameters
+            hyperparameters = self.hyperparameters
 
         n = len(X)
         gram_matrix = np.array([np.zeros(n) for _ in range(n)])
@@ -49,25 +68,34 @@ class GPC():
             gram_matrix[i][j] = self.kernel(X[i], X[j], hyperparameters)
         return gram_matrix
     
-    def loglikelihood(self, Y, f) -> float:
-        '''return the log likelihood'''
+    def _sigmoid(self, f):
+        return 1/(1 + np.exp(-f))
+
+    def _loglikelihood(self, Y, f) -> float:
+        '''Returns the log likelihood for a binary classification model'''
+        
         f = f.reshape(1, -1)
         Y = Y.reshape(1, -1)
         assert f.shape == Y.shape, f"f and Y are not the same shape got f: {f.shape} and Y: {Y.shape}"
-        return - np.sum(np.log(1/(1 + np.exp( -f*Y))))
-        #I dont think we need the X here unless we are cumputing the f every time, if the f is sampled from outside there should be no problem
-        #If we sample inside of the ll we need to call the kernel here and create the MVnorm inside of the LL using X
+
+        return np.sum([
+            np.log(self._sigmoid(f_i)) if y == 1 
+            else np.log(self._sigmoid(-f_i)) 
+            for f_i, y in zip(f, Y)
+            ])
 
     def sample_prior(self, X, num_samples:int) -> Sequence:
-        return np.random.multivariate_normal(self.get_mu(X), self.get_sigma(X), num_samples)
+        '''Draw num_samples from the prior'''
+        return np.random.multivariate_normal(self._get_mu(X), self._get_sigma(X), num_samples)
     
-    def sample_posterior(self, X, Y, num_burnin:int = 100, num_samples:int = 300) -> Sequence:
-        '''return n samples after an initial burn in of samples'''
+    def sample_posterior(self, X, Y, num_burnin:int = 100, num_samples:int = 300, **kwargs) -> Sequence:
+        '''Draws num_samples from posterior and discards the first num_burnin samples.'''
         assert num_samples > num_burnin, f"Got {num_samples} but required to burn {num_burnin} samples"
-        def log_likelihood(f):
-            return self.loglikelihood(Y=Y, f=f)
 
-        ess = EllipticalSampler(self.get_mu(X), self.get_sigma(X), log_likelihood)
+        def log_likelihood(f):
+            return self._loglikelihood(Y=Y, f=f)
+
+        ess = EllipticalSampler(self._get_mu(X), self._get_sigma(X,**kwargs), log_likelihood)
         return ess.sample(num_samples, num_burnin)
 
     def posterior_mean(self, X, Y, **kwargs) -> Sequence:
@@ -75,46 +103,19 @@ class GPC():
         return np.mean(self.sample_posterior(X, Y, **kwargs), axis=0)
 
     def fit(self, X, y, maxiter:int = 100, **kwargs) -> None:
-        '''sets hyperparameters to optimal'''
+        '''Fits the model and finds the optimal hyperparameters'''
         self.X = X
         self.Y = y
 
         def nll(hyperparameters):
-            return (- self.loglikelihood(Y=self.Y, f=self.posterior_mean(self.X, self.Y, hyperparameters=hyperparameters, **kwargs)))
+            return (- self._loglikelihood(Y=self.Y, f=self.posterior_mean(self.X, self.Y, hyperparameters=hyperparameters, **kwargs)))
 
-        res = minimize(nll, self.kernel_parameters, method=self.optimizer, maxiter=maxiter)
-        self.set_hyperparams(res.x)
+        res = minimize(nll, self.hyperparameters, method=self.optimizer, maxiter=maxiter)
+        self._update_hyperparameters(res.x)
     
     def predict(self, X) -> float:
-        self._is_fitted()
+        self._check_is_fitted()
         ...
-
-    def plot_gp(
-        self, X, Y,
-        dim:int = 0, 
-        num_burnin:int = 100, 
-        num_samples:int = 300, 
-        alpha:float = 0.7, 
-        plot_mean:bool = True, 
-        **plot_kwargs
-    ) -> None:
-
-        if len(X.shape) == 1:
-            X_dim = X
-        else:
-            X_dim = X[:, dim]
-
-        self.ax.scatter(X_dim, Y, color="tab:blue")
-        
-        samples = self.sample_posterior(X, Y, num_burnin, num_samples)
-        for f in samples:
-            x, y = zip(*sorted(zip(X_dim, f), key = lambda x: x[0]))
-            self.ax.plot(x, y, alpha=alpha, color="tab:purple", **plot_kwargs)
-        
-        if plot_mean:
-            mean = np.mean(samples, axis=0)
-            x, y = zip(*sorted(zip(X_dim, mean), key=lambda x: x[0]))
-            self.ax.plot(x, y, color="tab:red")
 
 
 #%%
@@ -129,11 +130,9 @@ def linear_kernel(x, y, theta):
     return theta[0] * np.dot(x, y) + theta[1]
 
 X = np.random.normal(0, 1, 10)
-Y = np.random.randint(1, 2, 10)
+Y = np.random.randint(0, 2, 10)
 
-gpc = GPC()
-
-gpc.set_kernel(linear_kernel, [100, 100])
+gpc = GPC(kernel=gaussian_kernel, hyperparameters=[1,1])
 
 gpc.sample_posterior(X, Y)
-#%%
+# %%
