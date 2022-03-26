@@ -113,7 +113,7 @@ class GPC():
         '''Predict function with kwargs being passed to sample_posterior'''
         self._check_is_fitted()
         pred_X = np.concatenate((self.X, pred_X))
-        samples = self.sample_posterior(X, Y, verbose=verbose, **kwargs)[:,]
+        samples = self.sample_posterior(pred_X, self.Y, verbose=verbose, **kwargs)[:, self.X.shape[0]:]
         return np.mean(samples, axis=0), np.var(samples, axis=0)
 
         # prediction = 1/(1 + np.exp(-(X - self.posterior_mean(self.X, self.Y, verbose=verbose, **kwargs))))
