@@ -16,6 +16,10 @@ class GPC():
         self.X = None
         self.Y = None
         self.optimizer = optimizer
+        self.fig, self.ax = plt.subplots(figsize=(14,14))
+
+    def _is_fitted(self) -> None:
+        assert self.X is not None, "There is no data loaded, please fit the model by calling the fit method."
 
     def set_hyperparams(self, hyperparameters) -> None:
         assert len(hyperparameters) == len(self.kernel_parameters), \
@@ -29,7 +33,7 @@ class GPC():
         self.kernel_parameters = hyperparameters
 
     def get_mu(self):
-        assert self.X is not None, "There is no data loaded, please fit the model by calling the fit method."
+        self._is_fitted()
         return np.zeros(len(self.X))
 
     def get_sigma(self, X:np.ndarray, hyperparameters:Sequence = []):
@@ -74,8 +78,32 @@ class GPC():
         self.set_hyperparams(res.x)
     
     def predict(self, X) -> float:
+        self._is_fitted()
         ...
 
+    def plot_gp(
+        self, 
+        X_dim:int = 0, 
+        num_burnin:int = 100, 
+        num_samples:int = 100, 
+        alpha:float = 0.3, 
+        plot_mean:bool = True, 
+        **plot_kwargs
+    ) -> None:
+
+        self._is_fitted()
+        X = self.X[:, X_dim]
+        self.ax.scatter(X, self.Y, color="tab:blue")
+        
+        samples = self.sample_posterior(self.X, num_burnin, num_samples)
+        for f in samples:
+            x, y = zip(*sorted(zip(X, f), key = lambda x: x[0]))
+            self.ax.plot(x, y, alpha=alpha, color="tab:purple", **plot_kwargs)
+        
+        if plot_mean:
+            mean = np.mean(samples, axis=0)
+            x, y = zip(*sorted(zip(X, mean), key=lambda x: x[0]))
+            self.ax.plot(x, y, color="tab:red")
 
 
 #%%
@@ -97,10 +125,5 @@ gpc = GPC()
 gpc.set_kernel(linear_kernel, [100, 100])
 gpc.X = X
 gpc.Y = Y
-
-#%%
-
-fig, ax = plt.subplots()
-ax.scatter(X, Y)
 
 #%%
