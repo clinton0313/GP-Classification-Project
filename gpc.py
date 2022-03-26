@@ -52,6 +52,9 @@ class GPC():
     
     def loglikelihood(self, X, Y, f, hyperparameters, **kwargs) -> float:
         '''return the log likelihood'''
+        return - sum(np.log(1/(1 + np.exp( -f*Y))))
+        #I dont think we need the X here unless we are cumputing the f every time, if the f is sampled from outside there should be no problem
+        #If we sample inside of the ll we need to call the kernel here and create the MVnorm inside of the LL using X
         
     
     def sample_posterior(self, X, num_burnin:int = 100, num_samples:int = 100) -> Sequence:
