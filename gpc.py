@@ -84,7 +84,7 @@ class GPC():
 
     def posterior_mean(self, X, Y, verbose=0, **kwargs) -> Sequence:
         '''Returns posterior mean'''
-        return np.mean(self.sample_posterior(X, Y, verbose=0, **kwargs), axis=0)
+        return np.mean(self.sample_posterior(X, Y, verbose=verbose, **kwargs), axis=0)
 
     def fit(self, X, y, maxiter:int = 100, tol:float = 0.1, verbose=0, **kwargs) -> None:
         '''
