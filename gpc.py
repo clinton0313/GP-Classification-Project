@@ -20,36 +20,21 @@ class GPC():
             hyperparameters: A sequence of hyperparmaeters that correspond to the kernel argument.
             optimizer[optional]: optimizer by scipy.optimize.minimize to fit the model. 
         '''
-        self.kernel= None
-        self.hyperparameters = None
-        self._set_kernel(kernel, hyperparameters)
+        self.kernel= kernel
+        self.hyperparameters = hyperparameters
 
         self.X = None
         self.Y = None
         self.optimizer = optimizer
 
-    @property
-    def hyperparameters(self):
-        return self._hyperparameters
-    
-    @property
-    def kernel(self):
-        return self._kernel
-
     def _check_is_fitted(self) -> None:
         assert self.X is not None, "There is no data loaded, please fit the model by calling the fit method."
 
     def _update_hyperparameters(self, hyperparameters) -> None:
-        '''Updates hyperparameters of kernel or sets it if no kernel is defined'''
-        if self._kernel_is_defined():
-            assert len(hyperparameters) == len(self.hyperparameters), \
-                f"Incorrect number of hyperparameters. Expected {len(self.hyperparameters)} instead got {len(hyperparameters)}"
-        self._hyperparameters = hyperparameters
-
-    def _set_kernel(self, kernel:Callable, hyperparameters:Sequence) -> None:
-        '''Sets kernel with a list of hyperparameters'''
-        self._kernel = kernel
-        self._update_hyperparameters(hyperparameters)
+        '''Updates hyperparameters of kernel'''
+        assert len(hyperparameters) == len(self.hyperparameters), \
+            f"Incorrect number of hyperparameters. Expected {len(self.hyperparameters)} instead got {len(hyperparameters)}"
+        self.hyperparameters = hyperparameters
 
     def _get_mu(self, X):
         '''Returns a mean vector of zeros'''
@@ -81,7 +66,7 @@ class GPC():
         return np.sum([
             np.log(self._sigmoid(f_i)) if y == 1 
             else np.log(self._sigmoid(-f_i)) 
-            for f_i, y in zip(f, Y)
+            for f_i, y in zip(f.squeeze().tolist(), Y.squeeze().tolist())
             ])
 
     def sample_prior(self, X, num_samples:int) -> Sequence:
@@ -110,7 +95,7 @@ class GPC():
         def nll(hyperparameters):
             return (- self._loglikelihood(Y=self.Y, f=self.posterior_mean(self.X, self.Y, hyperparameters=hyperparameters, **kwargs)))
 
-        res = minimize(nll, self.hyperparameters, method=self.optimizer, maxiter=maxiter)
+        res = minimize(nll, self.hyperparameters, method=self.optimizer, options={"maxiter":maxiter})
         self._update_hyperparameters(res.x)
     
     def predict(self, X) -> float:
