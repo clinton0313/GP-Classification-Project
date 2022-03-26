@@ -78,7 +78,8 @@ class GPC():
         self.set_hyperparams(res.x)
     
     def predict(self, X) -> float:
-        ...
+        prediction = 1/(1 + np.exp(-(X - self.posterior_mean)))
+        return prediction
 
 
 
