@@ -10,16 +10,24 @@ class GPC():
     '''
     A Gaussian Process Classifier class.
     '''
-    def __init__(self, kernel:Callable, hyperparameters:Sequence, optimizer:str = "Nelder-Mead"):
+    def __init__(
+        self, 
+        kernel:Callable, 
+        hyperparameters:Sequence, 
+        hyperparameter_names: Sequence = [], 
+        optimizer:str = "Nelder-Mead"
+    ):
         '''
         Args:
             kernel: A kernel function that takes three arguments: X, Y, hyperparameters. 
                 hyperparameters should be a list of kernel parameters.
             hyperparameters: A sequence of hyperparmaeters that correspond to the kernel argument.
+            hyperparameter_names[optional]: Names of the hyperparameters.
             optimizer[optional]: optimizer by scipy.optimize.minimize to fit the model. 
         '''
         self.kernel= kernel
         self.hyperparameters = hyperparameters
+        self.hyperparameters_names = hyperparameter_names
 
         self.X = None
         self.Y = None
@@ -69,7 +77,6 @@ class GPC():
         
         f = f.reshape(1, -1)
         Y = self._list_to_array(Y).reshape(1, -1)
-        assert f.shape == Y.shape, f"f and Y are not the same shape got f: {f.shape} and Y: {Y.shape}"
 
         return np.sum([
             np.log(self._sigmoid(f_i)) if y == 1 
@@ -86,6 +93,7 @@ class GPC():
         assert num_samples > num_burnin, f"Got {num_samples} but required to burn {num_burnin} samples"
 
         def log_likelihood(f):
+            if len(Y) < len(f): f = f[:len(Y)]
             return self._loglikelihood(Y=Y, f=f)
 
         ess = EllipticalSampler(self._get_mu(X), self._get_sigma(X,**kwargs), log_likelihood)
@@ -110,18 +118,26 @@ class GPC():
         def nll(hyperparameters):
             return (- self._loglikelihood(Y=self.Y, f=self.posterior_mean(self.X, self.Y, hyperparameters=hyperparameters, **kwargs)))
 
+        def callback(parameters):
+            if verbose >= 1:
+                if len(self.hyperparameters_names) == len(parameters):
+                    parameter_strings = [str(round(p, 4)) for p in parameters]
+                    output = [": ".join(name_param) for name_param in zip(self.hyperparameters_names, parameter_strings)]
+                    print(" ".join(output))
+                else:
+                    print(parameters)
+
         res = minimize(
             nll, 
             self.hyperparameters, 
             method=self.optimizer, 
             options={"maxiter":maxiter, "fatol":tol}, 
-            callback=lambda x: print(x) if verbose >=1 else None)
+            callback=callback)
         self._update_hyperparameters(res.x)
     
     def predict(self, X, verbose=0, **kwargs) -> float:
         '''Predict function with kwargs being passed to sample_posterior'''
         self._check_is_fitted()
-        prediction = 1/(1 + np.exp(-(X - self.posterior_mean(self.X, self.Y, verbose=verbose, **kwargs))))
-        return prediction
-
-# %%
+        pred_X = np.concatenate((self.X, pred_X))
+        samples = self.sample_posterior(pred_X, self.Y, verbose=verbose, **kwargs)[:, self.X.shape[0]:]
+        return np.mean(samples, axis=0), np.var(samples, axis=0)
