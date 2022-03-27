@@ -165,7 +165,6 @@ def plot_contour(
     test_Y, 
     pred_Y, 
     gpc, 
-    cmap, 
     contour=True,
     **plot_kwargs
 ):
