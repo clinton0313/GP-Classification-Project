@@ -146,10 +146,20 @@ class GPC():
         self.nll = res.fun
         print(f"Fitted with final hyperparameters: {self.hyperparameters} and neg log likelihood {res.fun}")
     
-    def predict(self, pred_X, verbose=0, **kwargs) -> float:
+    def sample_posterior_predictions(self, X, verbose=0, **kwargs) -> Sequence:
+        '''Draws posterior prediction samples by concatenating the new X's with the X's that the model was fitted on.
+        returns samples that are n + t x 1 where n is the lenght of the training data and t is the length of the new data
+        pass num_samples or num_burnin to the sample posterior method through kwargs
+        '''
+        self._check_is_fitted()
+        X = np.concatenate((self.X, X))
+        return self.sample_posterior(X, self.Y, verbose=verbose, **kwargs)
+
+
+    def predict(self, X, verbose=0, **kwargs) -> float:
         '''Predict function with kwargs being passed to sample_posterior'''
         self._check_is_fitted()
-        pred_X = np.concatenate((self.X, pred_X))
-        samples = self.sample_posterior(pred_X, self.Y, verbose=verbose, **kwargs)[:, self.X.shape[0]:]
+        X = np.concatenate((self.X, X))
+        samples = self.sample_posterior(X, self.Y, verbose=verbose, **kwargs)[:, self.X.shape[0]:]
         return np.mean(samples, axis=0), np.var(samples, axis=0)
 
