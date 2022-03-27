@@ -31,6 +31,7 @@ class GPC():
 
         self.X = None
         self.Y = None
+        self.nll = None
         self.optimizer = optimizer
 
     def _check_is_fitted(self) -> None:
@@ -117,7 +118,10 @@ class GPC():
         self.Y = y
 
         def nll(hyperparameters):
-            return (- self._loglikelihood(Y=self.Y, f=self.posterior_mean(self.X, self.Y, hyperparameters=hyperparameters, **kwargs)))
+            neg_loglikelihood = -1 * self._loglikelihood(Y=self.Y, f=self.posterior_mean(self.X, self.Y, hyperparameters=hyperparameters, **kwargs))
+            if verbose >= 1:
+                print(f"Neg log likelihood is {neg_loglikelihood}")
+            return neg_loglikelihood
 
         def callback(parameters):
             if verbose >= 1:
@@ -135,6 +139,7 @@ class GPC():
             options={"maxiter":maxiter, "ftol": tol, "eps": eps}, 
             callback=callback)
         self._update_hyperparameters(res.x)
+        self.nll = res.fun
         print(f"Fitted with final hyperparameters: {self.hyperparameters} and neg log likelihood {res.fun}")
     
     def predict(self, X, verbose=0, **kwargs) -> float:
