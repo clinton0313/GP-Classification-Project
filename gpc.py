@@ -11,7 +11,7 @@ class GPC():
     '''
     A Gaussian Process Classifier class.
     '''
-    def __init__(self, kernel, hyperparameters, optimizer:str = "Nelder-Mead"):
+    def __init__(self, kernel, hyperparameters, optimizer:str = "L-BFGS-B"):
         '''
         Args:
             kernel: A kernel function that takes three arguments: X, Y, hyperparameters. 
@@ -106,7 +106,7 @@ class GPC():
             nll, 
             self.hyperparameters, 
             method=self.optimizer, 
-            options={"maxiter":maxiter, "fatol":tol}, 
+            options={"maxiter":maxiter, "ftol":tol}, 
             callback=lambda x: print(x) if verbose >=1 else None)
         self._update_hyperparameters(res.x)
     
@@ -142,5 +142,5 @@ prob_pred = GPC._sigmoid(y_pred)
 prob_lb, prob_ub = GPC._sigmoid(y_pred-2*np.sqrt(var_pred)), GPC._sigmoid(y_pred+2*np.sqrt(var_pred))
 
 # %%
-
+gpc = GPC(kernel=gaussian_kernel, hyperparameters=[1,1])
 # %%
