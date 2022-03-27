@@ -79,7 +79,7 @@ class GPC():
             Y: Binary labels
             f: Logits (draw from gaussian process)
         '''
-
+        
         f = f.reshape(1, -1)
         Y = self._list_to_array(Y).reshape(1, -1)
 
