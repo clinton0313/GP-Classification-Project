@@ -70,7 +70,7 @@ nlls = [
     round(np.mean([- model._loglikelihood(y, s) for s in sample]), 3)
     for model, sample in zip(models, samples)
 ]
-
+#%%
 def plot_example(x_dim, x, y, titles, samples, x_test = None, y_test = None):
     fig, axs = plt.subplots(2, 2, figsize=(12, 12), sharey=True, tight_layout=True)
     for i, ax in enumerate(axs.ravel()):
@@ -125,7 +125,7 @@ def gen_outofbounds_x(x, num_samples, step):
         oob_x.append(x_dim)
     return np.vstack(oob_x).T
 
-new_x = gen_outofbounds_x(x, 10, 0.1)
+new_x = gen_outofbounds_x(x, 10, 0.5)
 
 
 #%%
