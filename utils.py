@@ -232,3 +232,32 @@ def plot_ESS(log_y, f_incumbent, f_candidate, Θ_min, Θ_max, nu, loglik, i, fir
     ax.spines['top'].set_visible(False)
     if save:
         fig.savefig(f'fig/mean_error_uniform_{i}.png', bbox_inches='tight', dpi=400)
+
+# INFORMATION CRITERIA
+
+def loglikelihood(Y, f) -> float:
+        '''
+        Returns the log likelihood for a binary classification model
+        Args:
+            Y: Binary labels
+            f: Logits (draw from gaussian process)
+        '''
+        
+        f = np.array(f).reshape(1, -1)
+        Y = np.array(Y).reshape(1, -1)
+
+        return np.sum([
+            np.log(sigmoid(f_i)) if y == 1 
+            else np.log(sigmoid(-f_i)) 
+            for f_i, y in zip(f.squeeze().tolist(), Y.squeeze().tolist())
+            ])
+
+def AIC(f, Y):
+    return 4 - loglikelihood(Y,f)
+
+def BIC(f,Y):
+    return 2*np.log(len(Y)) - loglikelihood(Y,f)
+
+def WAIC(Y,posterior_samples):
+   return -2*np.mean([loglikelihood(Y, f) for f in posterior_samples]) + 2*loglikelihood(Y, np.mean(posterior_samples, axis= 0))    
+
