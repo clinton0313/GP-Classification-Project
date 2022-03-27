@@ -1,6 +1,5 @@
 #%%
 import itertools
-import matplotlib.pyplot as plt
 import numpy as np
 
 from EllipticalSliceSampler import EllipticalSampler
@@ -11,19 +10,28 @@ class GPC():
     '''
     A Gaussian Process Classifier class.
     '''
-    def __init__(self, kernel, hyperparameters, optimizer:str = "L-BFGS-B"):
+    def __init__(
+        self, 
+        kernel:Callable, 
+        hyperparameters:Sequence, 
+        hyperparameter_names: Sequence = [], 
+        optimizer:str = "L-BFGS-B"
+    ):
         '''
         Args:
             kernel: A kernel function that takes three arguments: X, Y, hyperparameters. 
                 hyperparameters should be a list of kernel parameters.
             hyperparameters: A sequence of hyperparmaeters that correspond to the kernel argument.
+            hyperparameter_names[optional]: Names of the hyperparameters.
             optimizer[optional]: optimizer by scipy.optimize.minimize to fit the model. 
         '''
         self.kernel= kernel
         self.hyperparameters = hyperparameters
+        self.hyperparameters_names = hyperparameter_names
 
         self.X = None
         self.Y = None
+        self.nll = None
         self.optimizer = optimizer
 
     def _check_is_fitted(self) -> None:
@@ -50,18 +58,26 @@ class GPC():
         gram_matrix = np.array([np.zeros(n) for _ in range(n)])
         for i, j in itertools.product(range(n), range(n)):
             gram_matrix[i][j] = self.kernel(X[i], X[j], hyperparameters)
-        return gram_matrix
+        return gram_matrix + 1e-12 * np.identity(n)
     
-    @staticmethod
-    def _sigmoid(f):
+    def _sigmoid(self, f):
         return 1/(1 + np.exp(-f))
 
+    def _list_to_array(self, x:Sequence):
+        if not isinstance(x, np.ndarray):
+            x = np.array(x)
+        return x
+
     def _loglikelihood(self, Y, f) -> float:
-        '''Returns the log likelihood for a binary classification model'''
+        '''
+        Returns the log likelihood for a binary classification model
+        Args:
+            Y: Binary labels
+            f: Logits (draw from gaussian process)
+        '''
         
         f = f.reshape(1, -1)
-        Y = Y.reshape(1, -1)
-        # assert f.shape == Y.shape, f"f and Y are not the same shape got f: {f.shape} and Y: {Y.shape}"
+        Y = self._list_to_array(Y).reshape(1, -1)
 
         return np.sum([
             np.log(self._sigmoid(f_i)) if y == 1 
@@ -88,12 +104,13 @@ class GPC():
         '''Returns posterior mean'''
         return np.mean(self.sample_posterior(X, Y, verbose=verbose, **kwargs), axis=0)
 
-    def fit(self, X, y, maxiter:int = 100, tol:float = 0.1, verbose=0, **kwargs) -> None:
+    def fit(self, X, y, maxiter:int = 100, eps:float = 1e-3, tol:float = 1e-7, verbose=0, **kwargs) -> None:
         '''
         Fits the model and finds the optimal hyperparameters
         
         Args:
             maxiter: max iterations for the optimizer
+            eps: step size for the optimizer
             tol: threshold change in the log likelihood for convergence
             verbose: 1 shows the hyperparameters as it updates, 2 also shows progress bar for sampler.
         '''
@@ -101,46 +118,34 @@ class GPC():
         self.Y = y
 
         def nll(hyperparameters):
-            return (- self._loglikelihood(Y=self.Y, f=self.posterior_mean(self.X, self.Y, hyperparameters=hyperparameters, **kwargs)))
+            neg_loglikelihood = -1 * self._loglikelihood(Y=self.Y, f=self.posterior_mean(self.X, self.Y, hyperparameters=hyperparameters, **kwargs))
+            if verbose >= 1:
+                print(f"Neg log likelihood is {neg_loglikelihood}")
+            return neg_loglikelihood
+
+        def callback(parameters):
+            if verbose >= 1:
+                if len(self.hyperparameters_names) == len(parameters):
+                    parameter_strings = [str(round(p, 4)) for p in parameters]
+                    output = [": ".join(name_param) for name_param in zip(self.hyperparameters_names, parameter_strings)]
+                    print(" ".join(output))
+                else:
+                    print(parameters)
+
         res = minimize(
             nll, 
             self.hyperparameters, 
             method=self.optimizer, 
-            options={"maxiter":maxiter, "ftol":tol}, 
-            callback=lambda x: print(x) if verbose >=1 else None)
+            options={"maxiter":maxiter, "ftol": tol, "eps": eps}, 
+            callback=callback)
         self._update_hyperparameters(res.x)
+        self.nll = res.fun
+        print(f"Fitted with final hyperparameters: {self.hyperparameters} and neg log likelihood {res.fun}")
     
-    def predict(self, pred_X, verbose=0, **kwargs) -> np.ndarray:
+    def predict(self, X, verbose=0, **kwargs) -> float:
         '''Predict function with kwargs being passed to sample_posterior'''
         self._check_is_fitted()
         pred_X = np.concatenate((self.X, pred_X))
         samples = self.sample_posterior(pred_X, self.Y, verbose=verbose, **kwargs)[:, self.X.shape[0]:]
         return np.mean(samples, axis=0), np.var(samples, axis=0)
 
-
-#%%
-
-def sigmoid(x):
-    return 1 / (1 + np.exp(-x))
-
-def gaussian_kernel(x, y, theta):
-    return theta[0] * np.exp(-(np.dot((x-y), (x-y))/(2*theta[1])))
-
-def linear_kernel(x, y, theta):
-    return theta[0] * np.dot(x, y) + theta[1]
-
-X = np.random.normal(0, 1, 10)
-Y = np.random.randint(0, 2, 10)
-
-gpc = GPC(kernel=gaussian_kernel, hyperparameters=[1,1])
-
-gpc.sample_posterior(X, Y)
-gpc.fit(X, Y, verbose=0)
-# %%
-y_pred, var_pred = gpc.predict(np.array([1]))
-prob_pred = GPC._sigmoid(y_pred)
-prob_lb, prob_ub = GPC._sigmoid(y_pred-2*np.sqrt(var_pred)), GPC._sigmoid(y_pred+2*np.sqrt(var_pred))
-
-# %%
-gpc = GPC(kernel=gaussian_kernel, hyperparameters=[1,1])
-# %%

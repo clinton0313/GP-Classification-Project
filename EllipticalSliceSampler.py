@@ -3,7 +3,7 @@ import sys
 from tqdm import tqdm
 import numpy as np
 from numpy.random import multivariate_normal as mn
-from typing import Sequence, Callable
+from typing import Callable
 
 # %%
 class EllipticalSampler:
