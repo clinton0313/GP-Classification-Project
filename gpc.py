@@ -65,6 +65,7 @@ class GPC():
         return gram_matrix + 1e-12 * np.identity(n)
     
 <<<<<<< HEAD
+<<<<<<< HEAD
     def loglikelihood(self, X, Y, f, hyperparameters, **kwargs) -> float:
         '''return the log likelihood'''
         f = np.random.multivariate_normal(self.get_mu, self.get_sigma(X, hyperparameters=hyperparameters))
@@ -73,6 +74,10 @@ class GPC():
         #If we sample inside of the ll we need to call the kernel here and create the MVnorm inside of the LL using X
 =======
     def _sigmoid(self, f):
+=======
+    @staticmethod
+    def _sigmoid(f):
+>>>>>>> main
         return 1/(1 + np.exp(-f))
 
     def _list_to_array(self, x:Sequence):
