@@ -3,7 +3,7 @@ import sys
 from tqdm import tqdm
 import numpy as np
 from numpy.random import multivariate_normal as mn
-from typing import Sequence, Callable
+from typing import Callable
 
 # %%
 class EllipticalSampler:
@@ -50,33 +50,35 @@ class EllipticalSampler:
         Θ_min, Θ_max = Θ - 2*np.pi, Θ
     
         while True:
-            try:
-                f_candidate = self.f_incumbent * np.cos(Θ) + nu * np.sin(Θ)
-                if self.ll(f_candidate) > log_y:
-                    self.f_incumbent = f_candidate
-                    return self.f_incumbent
-                elif Θ < 0:
-                    Θ_min = Θ
-                elif Θ > 0:
-                    Θ_max = Θ
-                Θ = np.random.uniform(Θ_min, Θ_max)
-            except Exception as e:
-                print(f"Error: {e}")
-                permission = input("Exit Sampler?: [Y/N]")
-                assert permission.lower() in ["y", "n", "yes", "no"], "Invalid response."
-                if permission.lower in ["y", "yes"]:
-                    raise e
-                elif permission.lower in ["n", "no"]:
-                    continue
+            # try:
+            f_candidate = self.f_incumbent * np.cos(Θ) + nu * np.sin(Θ)
+            if self.ll(f_candidate) > log_y:
+                self.f_incumbent = f_candidate
+                return self.f_incumbent.squeeze()
+            elif Θ < 0:
+                Θ_min = Θ
+            elif Θ > 0:
+                Θ_max = Θ
+            Θ = np.random.uniform(Θ_min, Θ_max)
+            # except Exception as e:
+            #     print(f"Error: {e}")
+            #     permission = input("Exit Sampler?: [Y/N]")
+            #     assert permission.lower() in ["y", "n", "yes", "no"], "Invalid response."
+            #     if permission.lower in ["y", "yes"]:
+            #         raise e
+            #     elif permission.lower in ["n", "no"]:
+            #         continue
 
-    def sample(self, num_samples: int, num_burnin: int=0):
+    def sample(self, num_samples: int, num_burnin: int=0, verbose:int =0):
         """
         Performs `num_samples` iterative runs of the ESS, with the `f` state updated
         between cycles. 
 
         :return: A stacked array with the posterior samples.  
         """
-        output = [self.iteration() + self.prior_µ for _ in tqdm(range(num_samples))]
+        disable = True if verbose <=1 else False
+
+        output = [self.iteration() + self.prior_µ for _ in tqdm(range(num_samples), disable=disable)]
         if num_burnin>0:
             output = output[num_burnin:]
         return np.stack(output)

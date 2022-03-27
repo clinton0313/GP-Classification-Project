@@ -1,85 +1,168 @@
 #%%
 import itertools
-import matplotlib.pyplot as plt
 import numpy as np
-from sklearn.covariance import log_likelihood
 
 from EllipticalSliceSampler import EllipticalSampler
 from scipy.optimize import minimize
 from typing import Callable, Sequence
 #%%
 class GPC():
-    
-    def __init__(self, optimizer:str = "Nelder-Mead"):
-        self.kernel_parameters = []
-        self.kernel_function = None
+    '''
+    A Gaussian Process Classifier class.
+    '''
+    def __init__(
+        self, 
+        kernel:Callable, 
+        hyperparameters:Sequence, 
+        hyperparameter_names: Sequence = [], 
+        optimizer:str = "L-BFGS-B"
+    ):
+        '''
+        Args:
+            kernel: A kernel function that takes three arguments: X, Y, hyperparameters. 
+                hyperparameters should be a list of kernel parameters.
+            hyperparameters: A sequence of hyperparmaeters that correspond to the kernel argument.
+            hyperparameter_names[optional]: Names of the hyperparameters.
+            optimizer[optional]: optimizer by scipy.optimize.minimize to fit the model. 
+        '''
+        self.kernel= kernel
+        self.hyperparameters = hyperparameters
+        self.hyperparameters_names = hyperparameter_names
+
         self.X = None
         self.Y = None
+        self.nll = None
         self.optimizer = optimizer
 
-    def set_hyperparams(self, hyperparameters) -> None:
-        assert len(hyperparameters) == len(self.kernel_parameters), \
-            f"Incorrect number of hyperparameters. Expected {len(self.kernel_parameters)} instead got {len(hyperparameters)}"
-        self.kernel_parameters = hyperparameters
-    
-    def set_kernel_function(self, kernel:Callable, hyperparameters:Sequence) -> None:
-        '''Sets a kernel function that takes as arguments, X, Y, hyperparameters (as a list) and returns a real number.'''
-
-        self.kernel_function = kernel
-        self.kernel_parameters = hyperparameters
-
-    def get_mu(self):
+    def _check_is_fitted(self) -> None:
         assert self.X is not None, "There is no data loaded, please fit the model by calling the fit method."
-        return np.zeros(len(self.X))
 
-    def get_sigma(self, X:np.ndarray, hyperparameters:Sequence = []):
+    def _update_hyperparameters(self, hyperparameters) -> None:
+        '''Updates hyperparameters of kernel'''
+        assert len(hyperparameters) == len(self.hyperparameters), \
+            f"Incorrect number of hyperparameters. Expected {len(self.hyperparameters)} instead got {len(hyperparameters)}"
+        self.hyperparameters = hyperparameters
+
+    def _get_mu(self, X):
+        '''Returns a mean vector of zeros'''
+        return np.zeros(len(X))
+
+    def _get_sigma(self, X:np.ndarray, hyperparameters:Sequence = []):
         '''Returns a variance covariance matrix using the specified kernel and hyperparameters. if no hyperparameters are
         specified then uses the class hyperparameters.'''
-        
-        assert self.kernel is not None, "No kernel is set"
+
         if hyperparameters == []:
-            hyperparameters = self.kernel_parameters
+            hyperparameters = self.hyperparameters
 
         n = len(X)
         gram_matrix = np.array([np.zeros(n) for _ in range(n)])
         for i, j in itertools.product(range(n), range(n)):
             gram_matrix[i][j] = self.kernel(X[i], X[j], hyperparameters)
-        return gram_matrix
+        min_eig = np.min(np.real(np.linalg.eigvals(gram_matrix)))
+        if min_eig <0:
+            gram_matrix -= 10*min_eig * np.eye(*gram_matrix.shape)
+
+        return gram_matrix + 1e-12 * np.identity(n)
     
+<<<<<<< HEAD
     def loglikelihood(self, X, Y, f, hyperparameters, **kwargs) -> float:
         '''return the log likelihood'''
         f = np.random.multivariate_normal(self.get_mu, self.get_sigma(X, hyperparameters=hyperparameters))
         return - sum(np.log(1/(1 + np.exp( -f*Y))))
         #I dont think we need the X here unless we are cumputing the f every time, if the f is sampled from outside there should be no problem
         #If we sample inside of the ll we need to call the kernel here and create the MVnorm inside of the LL using X
+=======
+    def _sigmoid(self, f):
+        return 1/(1 + np.exp(-f))
+
+    def _list_to_array(self, x:Sequence):
+        if not isinstance(x, np.ndarray):
+            x = np.array(x)
+        return x
+
+    def _loglikelihood(self, Y, f) -> float:
+        '''
+        Returns the log likelihood for a binary classification model
+        Args:
+            Y: Binary labels
+            f: Logits (draw from gaussian process)
+        '''
+>>>>>>> main
         
+        f = f.reshape(1, -1)
+        Y = self._list_to_array(Y).reshape(1, -1)
+
+        return np.sum([
+            np.log(self._sigmoid(f_i)) if y == 1 
+            else np.log(self._sigmoid(-f_i)) 
+            for f_i, y in zip(f.squeeze().tolist(), Y.squeeze().tolist())
+            ])
+
+    def sample_prior(self, X, num_samples:int) -> Sequence:
+        '''Draw num_samples from the prior'''
+        return np.random.multivariate_normal(self._get_mu(X), self._get_sigma(X), num_samples)
     
-    def sample_posterior(self, X, num_burnin:int = 100, num_samples:int = 100) -> Sequence:
-        '''return n samples after an initial burn in of samples'''
-        def ll(f):
-            return self.loglikelihood(hyperparameters=self.kernel_parameters)
+    def sample_posterior(self, X, Y, num_burnin:int = 100, num_samples:int = 300, verbose=0, **kwargs) -> Sequence:
+        '''Draws num_samples from posterior and discards the first num_burnin samples.'''
+        assert num_samples > num_burnin, f"Got {num_samples} but required to burn {num_burnin} samples"
 
-        ess = EllipticalSampler(self.get_mu(), self.get_sigma(X), ll)
-        return ess.sample(num_samples, num_burnin)
+        def log_likelihood(f):
+            if len(Y) < len(f): f = f[:len(Y)]
+            return self._loglikelihood(Y=Y, f=f)
 
-    def posterior_mean(self, **kwargs) -> Sequence:
+        ess = EllipticalSampler(self._get_mu(X), self._get_sigma(X,**kwargs), log_likelihood)
+        return ess.sample(num_samples, num_burnin, verbose=verbose)
+
+    def posterior_mean(self, X, Y, verbose=0, **kwargs) -> Sequence:
         '''Returns posterior mean'''
+<<<<<<< HEAD
         return np.mean(self.sample_posterior(self.X, **kwargs), axis=0)
     
     def posterior_var(self, **kwargs) -> Sequence:
         return np.var(self.sample_posterior(self.X, **kwargs), axis= 0)
+=======
+        return np.mean(self.sample_posterior(X, Y, verbose=verbose, **kwargs), axis=0)
+>>>>>>> main
 
-    def fit(self, X, y, max_iters:int = 100, **kwargs) -> None:
-        '''sets hyperparameters to optimal'''
+    def fit(self, X, y, maxiter:int = 100, eps:float = 1e-3, tol:float = 1e-7, verbose=0, **kwargs) -> None:
+        '''
+        Fits the model and finds the optimal hyperparameters
+        
+        Args:
+            maxiter: max iterations for the optimizer
+            eps: step size for the optimizer
+            tol: threshold change in the log likelihood for convergence
+            verbose: 1 shows the hyperparameters as it updates, 2 also shows progress bar for sampler.
+        '''
         self.X = X
         self.Y = y
 
         def nll(hyperparameters):
-            return self.loglikelihood(self.X, self.Y, f=self.posterior_mean(**kwargs))
+            neg_loglikelihood = -1 * self._loglikelihood(Y=self.Y, f=self.posterior_mean(self.X, self.Y, hyperparameters=hyperparameters, **kwargs))
+            if verbose >= 1:
+                print(f"Neg log likelihood is {neg_loglikelihood}")
+            return neg_loglikelihood
 
-        res = minimize(nll, self.kernel_parameters, method=self.optimizer)
-        self.set_hyperparams(res.x)
+        def callback(parameters):
+            if verbose >= 1:
+                if len(self.hyperparameters_names) == len(parameters):
+                    parameter_strings = [str(round(p, 4)) for p in parameters]
+                    output = [": ".join(name_param) for name_param in zip(self.hyperparameters_names, parameter_strings)]
+                    print(" ".join(output))
+                else:
+                    print(parameters)
+
+        res = minimize(
+            nll, 
+            self.hyperparameters, 
+            method=self.optimizer, 
+            options={"maxiter":maxiter, "ftol": tol, "eps": eps}, 
+            callback=callback)
+        self._update_hyperparameters(res.x)
+        self.nll = res.fun
+        print(f"Fitted with final hyperparameters: {self.hyperparameters} and neg log likelihood {res.fun}")
     
+<<<<<<< HEAD
     def predict(self, X) -> float:
         prediction = 1/(1 + np.exp(-(X - self.posterior_mean)/self.posterior_var))
         return prediction
@@ -110,5 +193,22 @@ gpc.Y = Y
 
 fig, ax = plt.subplots()
 ax.scatter(X, Y)
+=======
+    def sample_posterior_predictions(self, X, verbose=0, **kwargs) -> Sequence:
+        '''Draws posterior prediction samples by concatenating the new X's with the X's that the model was fitted on.
+        returns samples that are n + t x 1 where n is the lenght of the training data and t is the length of the new data
+        pass num_samples or num_burnin to the sample posterior method through kwargs
+        '''
+        self._check_is_fitted()
+        X = np.concatenate((self.X, X))
+        return self.sample_posterior(X, self.Y, verbose=verbose, **kwargs)
 
-#%%
+
+    def predict(self, X, verbose=0, **kwargs) -> float:
+        '''Predict function with kwargs being passed to sample_posterior'''
+        self._check_is_fitted()
+        X = np.concatenate((self.X, X))
+        samples = self.sample_posterior(X, self.Y, verbose=verbose, **kwargs)[:, self.X.shape[0]:]
+        return np.mean(samples, axis=0), np.var(samples, axis=0)
+>>>>>>> main
+
