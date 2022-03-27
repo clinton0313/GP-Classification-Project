@@ -1,8 +1,11 @@
 import matplotlib.pyplot as plt
+from matplotlib.patches import Patch
+from matplotlib.lines import Line2D
 import numpy as np
 from typing import Callable
 from EllipticalSliceSampler import EllipticalSampler
 from sklearn.gaussian_process.kernels import Matern
+
 
 #KERNEL FUNCTIONS
 
@@ -146,5 +149,51 @@ def plot_multiple(
     ax.set_ylabel("Log-Likelihood")
     ax.set_xlabel("Sample Iteration")
     ax.set_title("Likelihood over ESS iterations - Multiple Initializations")
+    ax.spines['right'].set_visible(False)
+    ax.spines['top'].set_visible(False)
+
+def plot_contour(
+    train_X, 
+    train_Y, 
+    test_X, 
+    test_Y, 
+    pred_Y, 
+    gpc, 
+    cmap, 
+    contour=True,
+    **plot_kwargs
+):
+    X = np.concatenate([train_X, test_X])
+    x_min, x_max = X[:, 0].min() - 1, X[:, 0].max() + 1
+    y_min, y_max = X[:, 1].min() - 1, X[:, 1].max() + 1
+    xx, yy = np.meshgrid(
+        np.arange(x_min, x_max, 0.5),
+        np.arange(y_min, y_max, 0.5)
+    )
+
+    fig, ax = plt.subplots(1,1,figsize=(10,8))
+    train_cmap = np.where(train_Y>0, "tab:red", "tab:green")
+    test_cmap = np.where(test_Y>0, "tab:red", "tab:green")
+    pred_cmap = np.where(pred_Y>0.5, "tab:red", "tab:green")
+    
+    if contour:
+        Z = gpc.predict(np.c_[xx.ravel(), yy.ravel()])
+        Z = Z[0].reshape(xx.shape)
+        ax.contourf(xx, yy, Z, cmap=cmap, alpha=0.6, **plot_kwargs)
+
+    ax.scatter(x=train_X[:,0], y=train_X[:,1], s=10, c=train_cmap)
+    ax.scatter(x=test_X[:,0], y=test_X[:,1], s=100, c=test_cmap, edgecolors=pred_cmap, linewidth=3)
+
+    legend_elements = [
+        Line2D([0], [0], marker='o', color='black', label='True Label', markeredgecolor='w', markersize=10),
+        Line2D([0], [0], marker='o', color='w', label='Predicted Label', markeredgecolor='black', markersize=10, markeredgewidth=3)
+    ]
+    ax.legend(
+        handles=legend_elements,
+        loc="lower center", 
+        ncol=2,
+    )
+
+    ax.set_title("Binary Classification using 2D observations")
     ax.spines['right'].set_visible(False)
     ax.spines['top'].set_visible(False)
