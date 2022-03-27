@@ -58,10 +58,13 @@ class GPC():
         gram_matrix = np.array([np.zeros(n) for _ in range(n)])
         for i, j in itertools.product(range(n), range(n)):
             gram_matrix[i][j] = self.kernel(X[i], X[j], hyperparameters)
+        min_eig = np.min(np.real(np.linalg.eigvals(gram_matrix)))
+        if min_eig <0:
+            gram_matrix -= 10*min_eig * np.eye(*gram_matrix.shape)
+
         return gram_matrix + 1e-12 * np.identity(n)
     
-    @staticmethod
-    def _sigmoid(f):
+    def _sigmoid(self, f):
         return 1/(1 + np.exp(-f))
 
     def _list_to_array(self, x:Sequence):
@@ -143,7 +146,7 @@ class GPC():
         self.nll = res.fun
         print(f"Fitted with final hyperparameters: {self.hyperparameters} and neg log likelihood {res.fun}")
     
-    def predict(self, pred_X, verbose=0, **kwargs) -> np.ndarray:
+    def predict(self, pred_X, verbose=0, **kwargs) -> float:
         '''Predict function with kwargs being passed to sample_posterior'''
         self._check_is_fitted()
         pred_X = np.concatenate((self.X, pred_X))
