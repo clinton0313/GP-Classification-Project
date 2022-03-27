@@ -7,6 +7,7 @@ from EllipticalSliceSampler import EllipticalSampler
 from sklearn.gaussian_process.kernels import Matern
 from IPython.display import clear_output
 import scipy
+from random import choice
 
 cmap=colors.LinearSegmentedColormap.from_list('rg',["tab:green", "tab:red"], N=256)
 
@@ -272,7 +273,7 @@ def get_labels(sample):
 def mean_sample(samples):
     return np.mean(np.vstack(samples), axis=0)
 
-def plot_mean_samples(pop_sample, sample_size=100, ncol=4, nrow=4, **kwargs):
+def plot_mean_samples(x_train, y_train, pop_sample, sample_size=100, ncol=4, nrow=4, **kwargs):
     mean_samples = [mean_sample([choice(pop_sample) for _ in range(sample_size)]) for _ in range(nrow * ncol - 1)]
     fig = compare_samples_with_original(x_train, y_train, mean_samples, nrow=nrow, ncol=ncol, **kwargs)
     return fig
