@@ -10,6 +10,9 @@ def white_noise_kernel(x, y, theta):
     '''Parameters: variance'''
     return theta[0]
 
+def gaussian_white_noise_kernel(x,y,theta):
+    return gaussian_kernel(x, y, [theta[0], theta[1]]) + white_noise_kernel(x, y, [theta[2]])
+
 def linear_kernel(x, y, theta):
     '''Parameters: variance'''
     return theta[0] * np.dot(x, y) 
