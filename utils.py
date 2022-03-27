@@ -1,11 +1,12 @@
 import matplotlib.pyplot as plt
-from matplotlib.patches import Patch
+from matplotlib import colors
 from matplotlib.lines import Line2D
 import numpy as np
 from typing import Callable
 from EllipticalSliceSampler import EllipticalSampler
 from sklearn.gaussian_process.kernels import Matern
 
+cmap=colors.LinearSegmentedColormap.from_list('rg',["tab:green", "tab:red"], N=256)
 
 #KERNEL FUNCTIONS
 
@@ -200,3 +201,34 @@ def plot_contour(
     ax.set_title("Binary Classification using 2D observations")
     ax.spines['right'].set_visible(False)
     ax.spines['top'].set_visible(False)
+
+
+def plot_ESS(log_y, f_incumbent, f_candidate, Θ_min, Θ_max, nu, loglik, i, first=True, save=True, **kwargs):
+    Θ_space = np.linspace(0,2*np.pi,200)
+    valid_Θ = [t for t in Θ_space if (Θ_max >= t) | (t >= 2*np.pi + Θ_min)]
+    disc_Θ = [t for t in Θ_space if (Θ_max <= t) | (t <= 2*np.pi + Θ_min)]
+    if first:
+        valid_Θ = Θ_space
+    valid_space = np.stack([(f_incumbent * np.cos(x) + nu * np.sin(x)).squeeze() for x in valid_Θ])
+    disc_space = np.stack([(f_incumbent * np.cos(x) + nu * np.sin(x)).squeeze() for x in disc_Θ])
+    higher_cmap = np.where(loglik(valid_space) > log_y, "tab:green", "black")
+
+    fig, ax = plt.subplots(1,1, **kwargs)
+    ax.scatter(x=valid_space[:,0], y=valid_space[:,1],s=10, c=higher_cmap, alpha=1)
+    ax.scatter(x=disc_space[:,0], y=disc_space[:,1],s=10, c="tab:gray", alpha=0.2)
+    ax.plot(f_incumbent[0], f_incumbent[1], 'k^', markersize=10, label="$f_t$")
+    ax.plot(f_candidate[0], f_candidate[1], 'b^', markersize=10, label="$f_{t+1}$")
+    ax.legend(loc="upper left", prop={'size': 16})
+    ax.spines['right'].set_visible(False)
+    ax.spines['top'].set_visible(False)
+    ax.set_title(
+        "$\log y=$" +
+        str(round(log_y,2)) +
+        "$\quadL(f_{t+1})=$" +
+        str(round(loglik(f_candidate),2)) +
+        "$\quad[Θ_{min},\;Θ_{max}]=$" + "[" + str(round(Θ_min,2)) + ", " + str(round(Θ_max,2)) +"]"
+    )
+    ax.spines['right'].set_visible(False)
+    ax.spines['top'].set_visible(False)
+    if save:
+        fig.savefig(f'fig/mean_error_uniform_{i}.png', bbox_inches='tight', dpi=400)
