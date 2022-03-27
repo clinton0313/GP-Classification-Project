@@ -64,20 +64,7 @@ class GPC():
 
         return gram_matrix + 1e-12 * np.identity(n)
     
-<<<<<<< HEAD
-<<<<<<< HEAD
-    def loglikelihood(self, X, Y, f, hyperparameters, **kwargs) -> float:
-        '''return the log likelihood'''
-        f = np.random.multivariate_normal(self.get_mu, self.get_sigma(X, hyperparameters=hyperparameters))
-        return - sum(np.log(1/(1 + np.exp( -f*Y))))
-        #I dont think we need the X here unless we are cumputing the f every time, if the f is sampled from outside there should be no problem
-        #If we sample inside of the ll we need to call the kernel here and create the MVnorm inside of the LL using X
-=======
-    def _sigmoid(self, f):
-=======
-    @staticmethod
     def _sigmoid(f):
->>>>>>> main
         return 1/(1 + np.exp(-f))
 
     def _list_to_array(self, x:Sequence):
@@ -92,8 +79,7 @@ class GPC():
             Y: Binary labels
             f: Logits (draw from gaussian process)
         '''
->>>>>>> main
-        
+
         f = f.reshape(1, -1)
         Y = self._list_to_array(Y).reshape(1, -1)
 
@@ -120,14 +106,7 @@ class GPC():
 
     def posterior_mean(self, X, Y, verbose=0, **kwargs) -> Sequence:
         '''Returns posterior mean'''
-<<<<<<< HEAD
-        return np.mean(self.sample_posterior(self.X, **kwargs), axis=0)
-    
-    def posterior_var(self, **kwargs) -> Sequence:
-        return np.var(self.sample_posterior(self.X, **kwargs), axis= 0)
-=======
         return np.mean(self.sample_posterior(X, Y, verbose=verbose, **kwargs), axis=0)
->>>>>>> main
 
     def fit(self, X, y, maxiter:int = 100, eps:float = 1e-3, tol:float = 1e-7, verbose=0, **kwargs) -> None:
         '''
@@ -167,38 +146,6 @@ class GPC():
         self.nll = res.fun
         print(f"Fitted with final hyperparameters: {self.hyperparameters} and neg log likelihood {res.fun}")
     
-<<<<<<< HEAD
-    def predict(self, X) -> float:
-        prediction = 1/(1 + np.exp(-(X - self.posterior_mean)/self.posterior_var))
-        return prediction
-
-
-
-#%%
-
-def sigmoid(x):
-    return 1 / (1 + np.exp(-x))
-
-def gaussian_kernel(x, y, theta):
-    return theta[0] * np.exp(-(np.dot((x-y), (x-y))/(2*theta[1])))
-
-def linear_kernel(x, y, theta):
-    return theta[0] * np.dot(x, y) + theta[1]
-
-X = np.random.normal(0, 1, 10)
-Y = np.random.randint(1, 2, 10)
-
-gpc = GPC()
-
-gpc.set_kernel(linear_kernel, [100, 100])
-gpc.X = X
-gpc.Y = Y
-
-#%%
-
-fig, ax = plt.subplots()
-ax.scatter(X, Y)
-=======
     def sample_posterior_predictions(self, X, verbose=0, **kwargs) -> Sequence:
         '''Draws posterior prediction samples by concatenating the new X's with the X's that the model was fitted on.
         returns samples that are n + t x 1 where n is the lenght of the training data and t is the length of the new data
@@ -215,5 +162,4 @@ ax.scatter(X, Y)
         X = np.concatenate((self.X, X))
         samples = self.sample_posterior(X, self.Y, verbose=verbose, **kwargs)[:, self.X.shape[0]:]
         return np.mean(samples, axis=0), np.var(samples, axis=0)
->>>>>>> main
 
