@@ -5,6 +5,8 @@ import numpy as np
 from typing import Callable
 from EllipticalSliceSampler import EllipticalSampler
 from sklearn.gaussian_process.kernels import Matern
+from IPython.display import clear_output
+import scipy
 
 cmap=colors.LinearSegmentedColormap.from_list('rg',["tab:green", "tab:red"], N=256)
 
@@ -204,6 +206,7 @@ def plot_contour(
 
 
 def plot_ESS(log_y, f_incumbent, f_candidate, Θ_min, Θ_max, nu, loglik, i, first=True, save=True, **kwargs):
+    clear_output(wait=True)
     Θ_space = np.linspace(0,2*np.pi,200)
     valid_Θ = [t for t in Θ_space if (Θ_max >= t) | (t >= 2*np.pi + Θ_min)]
     disc_Θ = [t for t in Θ_space if (Θ_max <= t) | (t <= 2*np.pi + Θ_min)]
@@ -230,5 +233,26 @@ def plot_ESS(log_y, f_incumbent, f_candidate, Θ_min, Θ_max, nu, loglik, i, fir
     )
     ax.spines['right'].set_visible(False)
     ax.spines['top'].set_visible(False)
+    plt.show()
     if save:
         fig.savefig(f'fig/mean_error_uniform_{i}.png', bbox_inches='tight', dpi=400)
+
+def plot_live(points, prior_Σ, sd_ellipse, sd2_ellipse):
+    clear_output(wait=True)
+    Σ_hat = np.cov(points.T)
+    post_Σ = prior_Σ @ scipy.linalg.inv(2*prior_Σ) @ prior_Σ
+
+    fig, ax = plt.subplots(figsize=(10,6))
+    ax.plot(sd_ellipse[0,:], sd_ellipse[1,:], label="1 SD")
+    ax.plot(sd2_ellipse[0,:], sd2_ellipse[1,:], label="2 SD")
+    ax.scatter(x=points[:,0], y=points[:,1], s=15, c="k", alpha=0.8)
+    ax.legend(loc="lower left")
+    sigma_cfs_txt = '$\Sigma^{cfs}_{11} = %.2f$, $\Sigma^{cfs}_{12} = %.2f$, $\Sigma^{cfs}_{22} = %.2f$' % (post_Σ[0,0], post_Σ[0,1], post_Σ[1,1])
+    sigma_post_txt = '$\hat{\Sigma}^{post}_{11} = %.2f$, $\hat{\Sigma}^{post}_{12} = %.2f$, $\hat{\Sigma}^{post}_{22} = %.2f$' % (Σ_hat[0,0], Σ_hat[0,1], Σ_hat[1,1])
+    ax.text(0, 3, sigma_cfs_txt, fontsize = 16)
+    ax.text(0, 2.5, sigma_post_txt, fontsize = 16)
+    ax.set_xlim(-3,3)
+    ax.set_ylim(-3,3.5)
+    ax.spines['right'].set_visible(False)
+    ax.spines['top'].set_visible(False)
+    plt.show()
