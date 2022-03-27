@@ -60,7 +60,8 @@ class GPC():
             gram_matrix[i][j] = self.kernel(X[i], X[j], hyperparameters)
         return gram_matrix + 1e-12 * np.identity(n)
     
-    def _sigmoid(self, f):
+    @staticmethod
+    def _sigmoid(f):
         return 1/(1 + np.exp(-f))
 
     def _list_to_array(self, x:Sequence):
@@ -142,7 +143,7 @@ class GPC():
         self.nll = res.fun
         print(f"Fitted with final hyperparameters: {self.hyperparameters} and neg log likelihood {res.fun}")
     
-    def predict(self, X, verbose=0, **kwargs) -> float:
+    def predict(self, pred_X, verbose=0, **kwargs) -> np.ndarray:
         '''Predict function with kwargs being passed to sample_posterior'''
         self._check_is_fitted()
         pred_X = np.concatenate((self.X, pred_X))
