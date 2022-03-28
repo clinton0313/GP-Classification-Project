@@ -64,6 +64,7 @@ class GPC():
 
         return gram_matrix + 1e-12 * np.identity(n)
     
+    @staticmethod
     def _sigmoid(f):
         return 1/(1 + np.exp(-f))
 
