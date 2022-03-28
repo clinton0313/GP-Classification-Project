@@ -265,7 +265,7 @@ def BIC(f,Y):
 def WAIC(Y,posterior_samples):
    return -2*np.mean([loglikelihood(Y, f) for f in posterior_samples]) + 2*loglikelihood(Y, np.mean(posterior_samples, axis= 0))    
 
-def plot_live(points, prior_Σ, sd_ellipse, sd2_ellipse):
+def plot_live(points, prior_Σ, sd_ellipse, sd2_ellipse, save, i):
     clear_output(wait=True)
     Σ_hat = np.cov(points.T)
     post_Σ = prior_Σ @ scipy.linalg.inv(2*prior_Σ) @ prior_Σ
@@ -283,6 +283,8 @@ def plot_live(points, prior_Σ, sd_ellipse, sd2_ellipse):
     ax.set_ylim(-3,3.5)
     ax.spines['right'].set_visible(False)
     ax.spines['top'].set_visible(False)
+    if save:
+        fig.savefig(f'fig/populating_{i}.png', bbox_inches='tight', dpi=400)
     plt.show()
 
 def label_colors(labels, col1="tab:orange", col2="tab:blue"):
